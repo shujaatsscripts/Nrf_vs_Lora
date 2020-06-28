@@ -54,62 +54,73 @@ void loop() {
 /*************** Initializing Test Parameters****************/ 
     packetData.totalPackets = 500;
     packetData.delayTime = 0;
-    packetData.averageRoundTripdelay = 0;
-    packetData.totalPackets = 0;
+    
+    do{
+        packetData.averageRoundTripdelay = 0;
+        packetData.totalPackets = 0;
+        if ( Serial.available() ){
+            char c = toupper(Serial.read());
+            if ( c == 'S' && role == 0 ){      
+                Serial.print(F("Staring Test in"));
+                delay(1000);
+                Serial.print(F(" 3 "));
+                delay(1000);
+                Serial.print(F(" 2 "));
+                delay(1000);
+                Serial.println(F(" 1 "));
+                delay(1000);
+                Serial.print(F("Start"));
+                delay(1000);
+            
+                /***************** Ping Out Role ***************************/    
+            
+                for (int n = 0 ; n < packetData.totalPackets ; n++){
+                    unsigned long startTime = micros();                       // Take the time, and send it.  This will block until complete
+                    if (!radio.write( &startTime, sizeof(unsigned long) )){
+                        Serial.println(F("failed"));
+                        n -= 1 ; 
+                    }
+                    
+                    radio.startListening();                                    // Now, continue listening
+                
+                    unsigned long startedWaitingAt = micros();               // Set up a timeout period, get the current microseconds
+                    boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
+                
+                    while ( !radio.available() ){                             // While nothing is received
+                        if (micros() - startedWaitingAt > timeoutDelay ){            // If waited longer than 200ms, indicate timeout and exit while loop
+                        timeout = true;
+                        break;
+                        }      
+                    }
+                    
+                    if ( timeout ){                                             // Describe the results
+                        Serial.println(F("Failed, response timed out."));
+                        packetData.packetloss += 1;
+                    }else{
+                        unsigned long gotTime;                                 // Grab the response, compare, and send to debugging spew
+                        radio.read( &gotTime, sizeof(unsigned long) );
+                        unsigned long endTime = micros();
+                    
+                    // Spew it
+                        Serial.print(F("Sent "));
+                        Serial.print(startTime);
+                        Serial.print(F(", Got response "));
+                        Serial.print(gotTime);
+                        Serial.print(F(", Round-trip delay "));
+                        Serial.print(endTime-startTime);
+                        Serial.println(F(" microseconds"));
+                    }
 
-    if ( Serial.available() ){
-        char c = toupper(Serial.read());
-        if ( c == 'S' && role == 0 ){      
-            Serial.print(F("Staring Test in"));
-            delay(1000);
-            Serial.print(F(" 3 "));
-            delay(1000);
-            Serial.print(F(" 2 "));
-            delay(1000);
-            Serial.println(F(" 1 "));
-            delay(1000);
-            Serial.print(F("Start"));
-            delay(1000);
+                    packetData.averageRoundTripdelay = (packetData.averageRoundTripdelay + (endTime-startTime))/2;
+
+                // Try again packetData.delayTime ms later
+                    delay(packetData.delayTime);
+                }
             }
-/****************** Ping Out Role ***************************/    
-    
-    for (int n = 0 ; n < packetData.totalPackets ; n++){
-        unsigned long start_time = micros();                       // Take the time, and send it.  This will block until complete
-        if (!radio.write( &start_time, sizeof(unsigned long) )){
-            Serial.println(F("failed"));
-            }
-        
-        radio.startListening();                                    // Now, continue listening
-    
-        unsigned long started_waiting_at = micros();               // Set up a timeout period, get the current microseconds
-        boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
-    
-        while ( !radio.available() ){                             // While nothing is received
-            if (micros() - started_waiting_at > timeoutDelay ){            // If waited longer than 200ms, indicate timeout and exit while loop
-            timeout = true;
-            break;
-            }      
+            sendData(&packetData);
         }
-        
-        if ( timeout ){                                             // Describe the results
-            Serial.println(F("Failed, response timed out."));
-        }else{
-            unsigned long got_time;                                 // Grab the response, compare, and send to debugging spew
-            radio.read( &got_time, sizeof(unsigned long) );
-            unsigned long end_time = micros();
-        
-        // Spew it
-            Serial.print(F("Sent "));
-            Serial.print(start_time);
-            Serial.print(F(", Got response "));
-            Serial.print(got_time);
-            Serial.print(F(", Round-trip delay "));
-            Serial.print(end_time-start_time);
-            Serial.println(F(" microseconds"));
-            }
-
-    // Try again 1s later
-        delay(5000);
-    }
-
+        packetData.delayTime = packetData.delayTime + 100;
+    }while(packetData.delayTime <= 500))
 } // Loop
+
+void sendData( nrfData * packetData){}
